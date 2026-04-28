@@ -16,18 +16,19 @@ const createDatabase = async () => {
     await client.connect();
 
     const res = await client.query(
-      `SELECT 1 FROM pg_database WHERE datname = '${process.env.DB_NAME}'`,
+      'SELECT 1 FROM pg_database WHERE datname = $1',
+      [process.env.DB_NAME],
     );
 
     if (res.rowCount === 0) {
-      await client.query(`CREATE DATABASE ${process.env.DB_NAME}`);
+      await client.query(`CREATE DATABASE "${process.env.DB_NAME}"`);
       /* eslint-disable no-console */
       console.log(` База данных ${process.env.DB_NAME} создана!`);
     } else {
-      console.log('ℹБаза данных уже существует.');
+      console.log('ℹ База данных уже существует.');
     }
   } catch (err) {
-    console.error('Ошибка при создании базы:', err);
+    console.error(' Ошибка при создании базы:', err);
   } finally {
     await client.end();
   }

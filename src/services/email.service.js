@@ -22,6 +22,15 @@ class MailService {
       html: `<div><h1>Для активации перейдите по ссылке</h1><a href="${link}">${link}</a></div>`,
     });
   }
+
+  async sendNotification(to, subject, text) {
+    await this.transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to,
+      subject,
+      text,
+    });
+  }
 }
 
 export default new MailService();

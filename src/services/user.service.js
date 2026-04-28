@@ -5,6 +5,8 @@ import emailService from './email.service.js';
 import tokenService from './token.service.js';
 
 class UserService {
+  // --- СУЩЕСТВУЮЩИЕ МЕТОДЫ ---
+
   async registration(name, email, password) {
     const candidate = await User.findOne({ where: { email } });
 
@@ -70,6 +72,34 @@ class UserService {
     };
   }
 
+  // --- НОВЫЕ И ИСПРАВЛЕННЫЕ МЕТОДЫ ---
+
+  // 1. Тот самый getProfile, который требовало ревью
+  async getProfile(userId) {
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'name', 'email', 'isActive'],
+    });
+
+    if (!user) {
+      throw new Error('Пользователь не найден');
+    }
+
+    return user;
+  }
+
+  // 2. Метод смены имени
+  async updateName(userId, name) {
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      throw new Error('Пользователь не найден');
+    }
+    user.name = name;
+    await user.save();
+
+    return { id: user.id, name: user.name, email: user.email };
+  }
+
   async forgotPassword(email) {
     const user = await User.findOne({ where: { email } });
 
@@ -82,12 +112,27 @@ class UserService {
     user.resetToken = resetToken;
     await user.save();
 
+    // Ссылка ведет на фронтенд, где юзер введет новый пароль
     const resetLink = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
 
     await emailService.sendNotification(
       email,
-      `Ссылка для сброса пароля: ${resetLink}`,
+      'Восстановление пароля',
+      `Для сброса пароля перейдите по ссылке: ${resetLink}`,
     );
+  }
+
+  // 3. Метод финального сброса пароля по токену
+  async resetPassword(token, newPassword) {
+    const user = await User.findOne({ where: { resetToken: token } });
+
+    if (!user) {
+      throw new Error('Ссылка устарела или неверна');
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetToken = null; // Очищаем токен после использования
+    await user.save();
   }
 
   async updatePassword(userId, oldPassword, newPassword) {
@@ -119,7 +164,8 @@ class UserService {
 
     await emailService.sendNotification(
       oldEmail,
-      `Ваш email меняется на ${newEmail}. Если это не вы — смените пароль.`,
+      'Запрос на смену Email',
+      `Ваш email меняется на ${newEmail}. Если это не вы — срочно смените пароль.`,
     );
 
     const link = `${process.env.API_URL}/api/activate-new-email/${activationToken}`;
